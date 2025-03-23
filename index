@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mi Rutina de Ejercicio</title>
+  <!-- Cargar Tailwind CSS desde CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { darkMode: 'class' }
+  </script>
+  <!-- Cargar Chart.js desde CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    /* Estilos personalizados */
+    /* Estilo para el slider del modo oscuro */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 24px;
+    }
+    .switch input { 
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+      border-radius: 24px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+    input:checked + .slider {
+      background-color: #2196F3;
+    }
+    input:checked + .slider:before {
+      transform: translateX(26px);
+    }
+  </style>
+</head>
+<body class="bg-white text-black dark:bg-gray-900 dark:text-gray-100">
+  <!-- Toggle de Modo Oscuro -->
+  <div class="fixed top-4 right-4 flex items-center space-x-2 z-50">
+    <label for="darkModeToggle" class="text-black dark:text-gray-100">Modo Oscuro</label>
+    <label class="switch">
+      <input type="checkbox" id="darkModeToggle">
+      <span class="slider"></span>
+    </label>
+  </div>
+
+  <div class="container mx-auto p-4" id="app">
+    <!-- Vista de Perfil -->
+    <div id="profileView" class="max-w-md mx-auto bg-white text-black dark:bg-gray-800 dark:text-gray-100 p-6 rounded shadow mb-4">
+      <h1 class="text-2xl font-bold mb-4">Crear Perfil</h1>
+      <input type="text" id="userName" placeholder="Ingrese su nombre" class="w-full border border-gray-300 dark:border-gray-700 p-2 rounded mb-4 bg-gray-100 dark:bg-gray-700">
+      <button id="saveProfile" class="w-full bg-blue-600 text-white p-2 rounded">Guardar Perfil</button>
+    </div>
+
+    <!-- Vista de Encuesta (Crear/Editar Rutina) -->
+    <div id="surveyView" class="max-w-2xl mx-auto bg-white text-black dark:bg-gray-800 dark:text-gray-100 p-6 rounded shadow mb-4 hidden">
+      <h1 class="text-2xl font-bold mb-4" id="surveyTitle">Crear Rutina</h1>
+      <input type="text" id="routineName" placeholder="Nombre de la rutina" class="w-full border border-gray-300 dark:border-gray-700 p-2 rounded mb-4 bg-gray-100 dark:bg-gray-700">
+      <input type="date" id="routineDate" class="w-full border border-gray-300 dark:border-gray-700 p-2 rounded mb-4 bg-gray-100 dark:bg-gray-700">
+      <!-- Contenedor para ejercicios -->
+      <div id="exercisesContainer" class="mb-4"></div>
+      <button id="addExercise" class="w-full bg-green-600 text-white p-2 rounded mb-4">Agregar Ejercicio</button>
+      <button id="saveRoutine" class="w-full bg-blue-600 text-white p-2 rounded">Guardar Rutina</button>
+      <button id="cancelEdit" class="w-full bg-red-600 text-white p-2 rounded mt-2 hidden">Cancelar Edición</button>
+    </div>
+
+    <!-- Vista de Menú -->
+    <div id="menuView" class="max-w-2xl mx-auto bg-white text-black dark:bg-gray-800 dark:text-gray-100 p-6 rounded shadow mb-4 hidden">
+      <h1 class="text-2xl font-bold mb-4" id="welcomeMessage">Bienvenido, Usuario</h1>
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-semibold">Rutinas</h2>
+        <div class="flex space-x-2">
+          <button id="viewCalendar" class="bg-purple-600 text-white p-2 rounded">Ver Calendario</button>
+          <button id="viewAnalysis" class="bg-indigo-600 text-white p-2 rounded">Análisis</button>
+        </div>
+      </div>
+      <ul id="routineList" class="mb-4"></ul>
+      <button id="createNewRoutine" class="w-full bg-green-600 text-white p-2 rounded">Crear Nueva Rutina</button>
+      <button id="downloadCSVMenu" class="w-full bg-green-600 text-white p-2 rounded mt-2">Descargar CSV</button>
+    </div>
+
+    <!-- Vista de Detalle de Rutina (To-Do List y Ejecución) -->
+    <div id="routineDetailView" class="max-w-2xl mx-auto bg-white text-black dark:bg-gray-800 dark:text-gray-100 p-6 rounded shadow mb-4 hidden">
+      <h1 class="text-2xl font-bold mb-4" id="detailRoutineName">Nombre de la Rutina</h1>
+      <p id="routineDuration" class="mb-4"></p>
+      <!-- Cronómetro en vivo -->
+      <div id="liveTimer" class="mb-4 text-xl font-bold"></div>
+      <div id="exercisesDetail" class="mb-4"></div>
+      <div class="flex space-x-2 mb-4">
+        <button id="startRoutine" class="w-full bg-green-600 text-white p-2 rounded">Empezar Rutina</button>
+        <button id="endRoutine" class="w-full bg-red-600 text-white p-2 rounded hidden">Terminar Rutina</button>
+      </div>
+      <button id="backToMenu" class="w-full bg-blue-600 text-white p-2 rounded">Volver al Menú</button>
+    </div>
+
+    <!-- Vista de Calendario -->
+    <div id="calendarView" class="max-w-2xl mx-auto bg-white text-black dark:bg-gray-800 dark:text-gray-100 p-6 rounded shadow mb-4 hidden">
+      <h1 class="text-2xl font-bold mb-4">Calendario de Rutinas</h1>
+      <div class="flex justify-between items-center mb-4">
+        <button id="prevMonth" class="bg-blue-600 text-white p-2 rounded">&lt;</button>
+        <div id="calendarMonthYear" class="text-xl"></div>
+        <button id="nextMonth" class="bg-blue-600 text-white p-2 rounded">&gt;</button>
+      </div>
+      <table class="w-full text-center">
+        <thead>
+          <tr>
+            <th class="py-1">Dom</th>
+            <th class="py-1">Lun</th>
+            <th class="py-1">Mar</th>
+            <th class="py-1">Mié</th>
+            <th class="py-1">Jue</th>
+            <th class="py-1">Vie</th>
+            <th class="py-1">Sáb</th>
+          </tr>
+        </thead>
+        <tbody id="calendarBody"></tbody>
+      </table>
+      <div id="dayDetails" class="mt-4"></div>
+      <button id="backToMenuFromCalendar" class="w-full bg-blue-600 text-white p-2 rounded mt-4">Volver al Menú</button>
+    </div>
+
+    <!-- Vista de Análisis -->
+    <div id="analysisView" class="max-w-2xl mx-auto bg-white text-black dark:bg-gray-800 dark:text-gray-100 p-6 rounded shadow mb-4 hidden">
+      <h1 class="text-2xl font-bold mb-4">Análisis de Rutinas</h1>
+      <div class="mb-4">
+        <label class="block mb-1">Fecha Inicio:</label>
+        <input type="date" id="analysisStartDate" class="w-full border border-gray-300 dark:border-gray-700 p-2 rounded bg-gray-100 dark:bg-gray-700">
+      </div>
+      <div class="mb-4">
+        <label class="block mb-1">Fecha Fin:</label>
+        <input type="date" id="analysisEndDate" class="w-full border border-gray-300 dark:border-gray-700 p-2 rounded bg-gray-100 dark:bg-gray-700">
+      </div>
+      <button id="generateChart" class="w-full bg-blue-600 text-white p-2 rounded mb-4">Generar Gráfica</button>
+      <canvas id="analysisChart" class="mb-4"></canvas>
+      <button id="downloadCSV" class="w-full bg-green-600 text-white p-2 rounded mb-4">Descargar CSV</button>
+      <button id="backToMenuFromAnalysis" class="w-full bg-blue-600 text-white p-2 rounded">Volver al Menú</button>
+    </div>
+  </div>
+
+  <script>
+    // Toggle Modo Oscuro
+    document.getElementById("darkModeToggle").addEventListener("change", function(e) {
+      if(e.target.checked) {
+         document.documentElement.classList.add("dark");
+      } else {
+         document.documentElement.classList.remove("dark");
+      }
+    });
+
+    // Variables globales
+    let editingRoutineId = null;
+    let currentRoutine = null;
+    let routineStartTime = null;
+    let currentCalendarDate = new Date();
+    let routineInProgress = false;
+    let timerInterval = null;
+
+    // Función para mostrar una vista y ocultar las demás
+    function showView(viewId) {
+      const views = ["profileView", "surveyView", "menuView", "routineDetailView", "calendarView", "analysisView"];
+      views.forEach(id => {
+        document.getElementById(id).classList.add("hidden");
+      });
+      document.getElementById(viewId).classList.remove("hidden");
+      // Si se muestra la vista de calendario, renderiza el calendario
+      if(viewId === "calendarView") renderCalendar();
+    }
+
+    // Guardar perfil de usuario
+    document.getElementById("saveProfile").addEventListener("click", function() {
+      const userName = document.getElementById("userName").value.trim();
+      if (!userName) {
+        alert("Ingrese un nombre");
+        return;
+      }
+      localStorage.setItem("userProfile", JSON.stringify({ name: userName }));
+      document.getElementById("welcomeMessage").textContent = "Bienvenido, " + userName;
+      showView("surveyView");
+    });
+
+    // Agregar bloque de ejercicio dinámicamente
+    document.getElementById("addExercise").addEventListener("click", function() {
+      const exerciseBlock = document.createElement("div");
+      exerciseBlock.className = "exercise-block border border-gray-300 dark:border-gray-700 p-4 mb-4 rounded";
+      exerciseBlock.innerHTML = `
+        <input type="text" class="exercise-name w-full border border-gray-300 dark:border-gray-700 p-2 rounded mb-2 bg-gray-100 dark:bg-gray-700" placeholder="Nombre del ejercicio">
+        <div class="flex mb-2">
+          <input type="number" min="1" class="num-sets w-1/2 border border-gray-300 dark:border-gray-700 p-2 rounded mr-2 bg-gray-100 dark:bg-gray-700" placeholder="Número de series">
+          <button class="generateSets w-1/2 bg-purple-600 text-white p-2 rounded">Generar Series</button>
+        </div>
+        <div class="setsContainer"></div>
+      `;
+      document.getElementById("exercisesContainer").appendChild(exerciseBlock);
+
+      // Generar inputs para cada serie según el número indicado
+      const genButton = exerciseBlock.querySelector(".generateSets");
+      genButton.addEventListener("click", function() {
+        const numSetsInput = exerciseBlock.querySelector(".num-sets");
+        const numSets = parseInt(numSetsInput.value);
+        const setsContainer = exerciseBlock.querySelector(".setsContainer");
+        setsContainer.innerHTML = "";
+        if (isNaN(numSets) || numSets < 1) {
+          alert("Ingrese un número válido de series");
+          return;
+        }
+        for (let i = 0; i < numSets; i++) {
+          const setRow = document.createElement("div");
+          setRow.className = "set-row flex space-x-2 mb-2";
+          setRow.innerHTML = `
+            <input type="number" min="1" class="set-reps w-1/2 border border-gray-300 dark:border-gray-700 p-2 rounded bg-gray-100 dark:bg-gray-700" placeholder="Repeticiones">
+            <input type="number" min="0" class="set-weight w-1/2 border border-gray-300 dark:border-gray-700 p-2 rounded bg-gray-100 dark:bg-gray-700" placeholder="Peso (KG)">
+          `;
+          setsContainer.appendChild(setRow);
+        }
+      });
+    });
+
+    // Guardar o actualizar rutina
+    document.getElementById("saveRoutine").addEventListener("click", function() {
+      const routineName = document.getElementById("routineName").value.trim();
+      const routineDate = document.getElementById("routineDate").value;
+      if (!routineName) {
+        alert("Ingrese el nombre de la rutina");
+        return;
+      }
+      const exerciseBlocks = document.querySelectorAll(".exercise-block");
+      let exercises = [];
+      exerciseBlocks.forEach(function(block) {
+        const exerciseName = block.querySelector(".exercise-name").value.trim();
+        if (!exerciseName) return;
+        const setsContainer = block.querySelector(".setsContainer");
+        const setRows = setsContainer.querySelectorAll(".set-row");
+        let sets = [];
+        setRows.forEach(function(row) {
+          const reps = row.querySelector(".set-reps").value;
+          const weight = row.querySelector(".set-weight").value;
+          if (reps === "" || weight === "") return;
+          sets.push({ reps: reps, weight: weight });
+        });
+        if (sets.length > 0) {
+          exercises.push({ name: exerciseName, sets: sets });
+        }
+      });
+      if (exercises.length === 0) {
+        alert("Agregue al menos un ejercicio con sus series");
+        return;
+      }
+      let routines = JSON.parse(localStorage.getItem("routines") || "[]");
+
+      if (editingRoutineId) {
+        // Actualizar rutina existente
+        routines = routines.map(r => {
+          if (r.id == editingRoutineId) {
+            return { ...r, name: routineName, date: routineDate, exercises: exercises };
+          }
+          return r;
+        });
+        alert("Rutina actualizada");
+      } else {
+        // Crear nueva rutina
+        const routine = {
+          id: Date.now(),
+          name: routineName,
+          date: routineDate,
+          exercises: exercises,
+          startTime: null,
+          endTime: null,
+          totalTime: null,
+          completed: null
+        };
+        routines.push(routine);
+        alert("Rutina guardada");
+      }
+      localStorage.setItem("routines", JSON.stringify(routines));
+      // Limpiar formulario
+      document.getElementById("routineName").value = "";
+      document.getElementById("routineDate").value = "";
+      document.getElementById("exercisesContainer").innerHTML = "";
+      editingRoutineId = null;
+      document.getElementById("cancelEdit").classList.add("hidden");
+      loadRoutines();
+      showView("menuView");
+    });
+
+    // Cancelar edición
+    document.getElementById("cancelEdit").addEventListener("click", function() {
+      editingRoutineId = null;
+      document.getElementById("cancelEdit").classList.add("hidden");
+      document.getElementById("routineName").value = "";
+      document.getElementById("routineDate").value = "";
+      document.getElementById("exercisesContainer").innerHTML = "";
+      document.getElementById("surveyTitle").textContent = "Crear Rutina";
+      showView("menuView");
+    });
+
+    // Cargar rutinas en el menú
+    function loadRoutines() {
+      const routineList = document.getElementById("routineList");
+      routineList.innerHTML = "";
+      const routines = JSON.parse(localStorage.getItem("routines") || "[]");
+      routines.forEach(function(routine) {
+        const li = document.createElement("li");
+        li.className = "border border-gray-300 dark:border-gray-700 p-4 rounded mb-2 flex justify-between items-center";
+        li.innerHTML = `
+          <span class="cursor-pointer routine-item" data-id="${routine.id}">${routine.name} ${routine.date ? "(" + routine.date + ")" : ""}</span>
+          <span>
+            <button class="editRoutine bg-yellow-500 text-white p-1 rounded mr-2" data-id="${routine.id}" title="Editar">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-5 h-5 inline">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2v-5m-4-4l-6 6m0 0l-2 2m2-2l6-6" />
+              </svg>
+            </button>
+            <button class="deleteRoutine bg-red-500 text-white p-1 rounded mr-2" data-id="${routine.id}" title="Eliminar">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-5 h-5 inline">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4a2 2 0 012 2v2H8V5a2 2 0 012-2z" />
+              </svg>
+            </button>
+            <button class="viewRoutine bg-blue-500 text-white p-1 rounded" data-id="${routine.id}">Ver</button>
+          </span>
+        `;
+        li.querySelector(".routine-item").addEventListener("click", function() {
+          showRoutineDetail(routine.id);
+        });
+        li.querySelector(".editRoutine").addEventListener("click", function(e) {
+          e.stopPropagation();
+          loadRoutineForEdit(routine.id);
+        });
+        li.querySelector(".deleteRoutine").addEventListener("click", function(e) {
+          e.stopPropagation();
+          if (confirm("¿Está seguro de eliminar esta rutina?")) {
+            deleteRoutine(routine.id);
+          }
+        });
+        li.querySelector(".viewRoutine").addEventListener("click", function(e) {
+          e.stopPropagation();
+          showRoutineDetail(routine.id);
+        });
+        routineList.appendChild(li);
+      });
+    }
+
+    // Función para eliminar una rutina
+    function deleteRoutine(routineId) {
+      let routines = JSON.parse(localStorage.getItem("routines") || "[]");
+      routines = routines.filter(r => r.id != routineId);
+      localStorage.setItem("routines", JSON.stringify(routines));
+      loadRoutines();
+      alert("Rutina eliminada");
+    }
+
+    // Cargar rutina para editar en la vista de encuesta
+    function loadRoutineForEdit(routineId) {
+      const routines = JSON.parse(localStorage.getItem("routines") || "[]");
+      const routine = routines.find(r => r.id == routineId);
+      if (!routine) return;
+      editingRoutineId = routineId;
+      document.getElementById("surveyTitle").textContent = "Editar Rutina";
+      document.getElementById("routineName").value = routine.name;
+      document.getElementById("routineDate").value = routine.date;
+      document.getElementById("exercisesContainer").innerHTML = "";
+      routine.exercises.forEach(function(ex) {
+        const exerciseBlock = document.createElement("div");
+        exerciseBlock.className = "exercise-block border border-gray-300 dark:border-gray-700 p-4 mb-4 rounded";
+        const numSets = ex.sets.length;
+        let setsHtml = "";
+        for (let i = 0; i < numSets; i++) {
+          setsHtml += `
+            <div class="set-row flex space-x-2 mb-2">
+              <input type="number" min="1" class="set-reps w-1/2 border border-gray-300 dark:border-gray-700 p-2 rounded bg-gray-100 dark:bg-gray-700" placeholder="Repeticiones" value="${ex.sets[i].reps}">
+              <input type="number" min="0" class="set-weight w-1/2 border border-gray-300 dark:border-gray-700 p-2 rounded bg-gray-100 dark:bg-gray-700" placeholder="Peso (KG)" value="${ex.sets[i].weight}">
+            </div>
+          `;
+        }
+        exerciseBlock.innerHTML = `
+          <input type="text" class="exercise-name w-full border border-gray-300 dark:border-gray-700 p-2 rounded mb-2 bg-gray-100 dark:bg-gray-700" placeholder="Nombre del ejercicio" value="${ex.name}">
+          <div class="flex mb-2">
+            <input type="number" min="1" class="num-sets w-1/2 border border-gray-300 dark:border-gray-700 p-2 rounded mr-2 bg-gray-100 dark:bg-gray-700" placeholder="Número de series" value="${numSets}">
+            <button class="generateSets w-1/2 bg-purple-600 text-white p-2 rounded">Generar Series</button>
+          </div>
+          <div class="setsContainer">
+            ${setsHtml}
+          </div>
+        `;
+        document.getElementById("exercisesContainer").appendChild(exerciseBlock);
+        const genButton = exerciseBlock.querySelector(".generateSets");
+        genButton.addEventListener("click", function() {
+          const numSetsInput = exerciseBlock.querySelector(".num-sets");
+          const numSets = parseInt(numSetsInput.value);
+          const setsContainer = exerciseBlock.querySelector(".setsContainer");
+          setsContainer.innerHTML = "";
+          if (isNaN(numSets) || numSets < 1) {
+            alert("Ingrese un número válido de series");
+            return;
+          }
+          for (let i = 0; i < numSets; i++) {
+            const setRow = document.createElement("div");
+            setRow.className = "set-row flex space-x-2 mb-2";
+            setRow.innerHTML = `
+              <input type="number" min="1" class="set-reps w-1/2 border border-gray-300 dark:border-gray-700 p-2 rounded bg-gray-100 dark:bg-gray-700" placeholder="Repeticiones">
+              <input type="number" min="0" class="set-weight w-1/2 border border-gray-300 dark:border-gray-700 p-2 rounded bg-gray-100 dark:bg-gray-700" placeholder="Peso (KG)">
+            `;
+            setsContainer.appendChild(setRow);
+          }
+        });
+      });
+      document.getElementById("cancelEdit").classList.remove("hidden");
+      showView("surveyView");
+    }
+
+    // Mostrar detalle de rutina (To-Do List y Ejecución)
+    function showRoutineDetail(routineId) {
+      const routines = JSON.parse(localStorage.getItem("routines") || "[]");
+      const routine = routines.find(r => r.id == routineId);
+      if (!routine) return;
+      currentRoutine = routine;
+      document.getElementById("detailRoutineName").textContent = routine.name;
+      const exercisesDetail = document.getElementById("exercisesDetail");
+      exercisesDetail.innerHTML = "";
+      // Generar To-Do List con botones para cada serie
+      routine.exercises.forEach(function(ex, exIndex) {
+        const exDiv = document.createElement("div");
+        exDiv.className = "mb-4";
+        const exTitle = document.createElement("h3");
+        exTitle.className = "text-xl font-semibold mb-2";
+        exTitle.textContent = "Ejercicio: " + ex.name;
+        exDiv.appendChild(exTitle);
+        const ul = document.createElement("ul");
+        ex.sets.forEach(function(set, setIndex) {
+          const li = document.createElement("li");
+          li.className = "flex items-center mb-1";
+          const label = document.createElement("span");
+          label.textContent = "Serie " + (setIndex + 1) + ": " + set.reps + " rep, " + set.weight + " KG";
+          li.appendChild(label);
+
+          // Contenedor para los botones
+          const btnContainer = document.createElement("div");
+          btnContainer.className = "ml-4 flex space-x-2";
+
+          // Botón de check
+          const checkButton = document.createElement("button");
+          checkButton.textContent = "✓";
+          checkButton.className = "check-button bg-green-500 text-white p-1 rounded";
+          checkButton.dataset.selected = "false";
+          checkButton.disabled = !routineInProgress;
+          btnContainer.appendChild(checkButton);
+
+          // Botón de X
+          const failButton = document.createElement("button");
+          failButton.textContent = "X";
+          failButton.className = "fail-button bg-red-500 text-white p-1 rounded";
+          failButton.dataset.selected = "false";
+          failButton.disabled = !routineInProgress;
+          btnContainer.appendChild(failButton);
+
+          li.appendChild(btnContainer);
+
+          // Event listener para botón de check
+          checkButton.addEventListener("click", function(e) {
+            e.stopPropagation();
+            if (checkButton.dataset.selected === "false") {
+              checkButton.dataset.selected = "true";
+              checkButton.classList.add("opacity-75");
+              // Deseleccionar botón de X
+              failButton.dataset.selected = "false";
+              failButton.classList.remove("opacity-75");
+              // Quitar tachado
+              label.style.textDecoration = "none";
+            } else {
+              checkButton.dataset.selected = "false";
+              checkButton.classList.remove("opacity-75");
+            }
+          });
+
+          // Event listener para botón de X
+          failButton.addEventListener("click", function(e) {
+            e.stopPropagation();
+            if (failButton.dataset.selected === "false") {
+              failButton.dataset.selected = "true";
+              failButton.classList.add("opacity-75");
+              // Deseleccionar botón de check
+              checkButton.dataset.selected = "false";
+              checkButton.classList.remove("opacity-75");
+              // Aplicar tachado
+              label.style.textDecoration = "line-through";
+            } else {
+              failButton.dataset.selected = "false";
+              failButton.classList.remove("opacity-75");
+              label.style.textDecoration = "none";
+            }
+          });
+
+          ul.appendChild(li);
+        });
+        exDiv.appendChild(ul);
+        exercisesDetail.appendChild(exDiv);
+      });
+      // Reiniciar botones de ejecución y mostrar tiempo si está registrado
+      document.getElementById("startRoutine").classList.remove("hidden");
+      document.getElementById("endRoutine").classList.add("hidden");
+      document.getElementById("routineDuration").textContent = routine.totalTime ? "Tiempo total: " + routine.totalTime : "";
+      // Mostrar o limpiar cronómetro
+      document.getElementById("liveTimer").textContent = "";
+      routineStartTime = null;
+      routineInProgress = false;
+      showView("routineDetailView");
+    }
+
+    // Iniciar ejecución de rutina
+    document.getElementById("startRoutine").addEventListener("click", function() {
+      routineStartTime = new Date();
+      routineInProgress = true;
+      // Habilitar botones de check y fail
+      document.querySelectorAll("#exercisesDetail button.check-button, #exercisesDetail button.fail-button").forEach(btn => {
+        btn.disabled = false;
+      });
+      // Iniciar cronómetro
+      timerInterval = setInterval(updateTimer, 1000);
+      document.getElementById("startRoutine").classList.add("hidden");
+      document.getElementById("endRoutine").classList.remove("hidden");
+      alert("Rutina iniciada a las " + routineStartTime.toLocaleTimeString());
+    });
+
+    // Función para actualizar cronómetro en vivo
+    function updateTimer() {
+      const now = new Date();
+      const diffMs = now - routineStartTime;
+      const diffSec = Math.floor(diffMs / 1000);
+      const minutes = Math.floor(diffSec / 60);
+      const seconds = diffSec % 60;
+      document.getElementById("liveTimer").textContent = "Tiempo: " + minutes + " min " + seconds + " seg";
+    }
+
+    // Terminar ejecución de rutina, registrar estado del To-Do list y calcular tiempo total
+    document.getElementById("endRoutine").addEventListener("click", function() {
+      if (!routineStartTime) return;
+      const endTime = new Date();
+      const diffMs = endTime - routineStartTime;
+      const diffSec = Math.floor(diffMs / 1000);
+      const minutes = Math.floor(diffSec / 60);
+      const seconds = diffSec % 60;
+      const totalTimeStr = minutes + " min " + seconds + " seg";
+      
+      // Recopilar estado de cada serie usando los botones
+      let completedExercises = [];
+      document.querySelectorAll("#exercisesDetail > div").forEach((exDiv, exIndex) => {
+        let exerciseCompleted = [];
+        exDiv.querySelectorAll("ul li").forEach(li => {
+          const checkButton = li.querySelector("button.check-button");
+          let completed = (checkButton && checkButton.dataset.selected === "true");
+          exerciseCompleted.push(completed);
+        });
+        completedExercises.push(exerciseCompleted);
+      });
+      
+      const allSeriesAchieved = completedExercises.every(ex => ex.every(val => val === true));
+      
+      let routines = JSON.parse(localStorage.getItem("routines") || "[]");
+      routines = routines.map(r => {
+        if (r.id == currentRoutine.id) {
+          let updatedExercises = r.exercises;
+          if (allSeriesAchieved) {
+            updatedExercises = r.exercises.map(ex => {
+              return {
+                ...ex,
+                sets: ex.sets.map(set => {
+                  return { ...set, weight: parseFloat(set.weight) + 2.5 };
+                })
+              };
+            });
+          }
+          return { 
+            ...r, 
+            startTime: routineStartTime.toISOString(), 
+            endTime: endTime.toISOString(), 
+            totalTime: totalTimeStr,
+            completed: completedExercises,
+            exercises: updatedExercises
+          };
+        }
+        return r;
+      });
+      localStorage.setItem("routines", JSON.stringify(routines));
+      document.getElementById("routineDuration").textContent = "Tiempo total: " + totalTimeStr;
+      document.getElementById("startRoutine").classList.remove("hidden");
+      document.getElementById("endRoutine").classList.add("hidden");
+      // Deshabilitar botones de check y fail
+      document.querySelectorAll("#exercisesDetail button.check-button, #exercisesDetail button.fail-button").forEach(btn => {
+        btn.disabled = true;
+      });
+      // Detener cronómetro
+      clearInterval(timerInterval);
+      timerInterval = null;
+      if(allSeriesAchieved) {
+        alert("Rutina terminada. Tiempo total: " + totalTimeStr + ". ¡Felicidades! Se han añadido 2.5KG extra a cada ejercicio para la próxima sesión.");
+      } else {
+        alert("Rutina terminada. Tiempo total: " + totalTimeStr);
+      }
+    });
+
+    // Volver al menú desde detalle de rutina
+    document.getElementById("backToMenu").addEventListener("click", function() {
+      showView("menuView");
+    });
+
+    // Botón para crear nueva rutina en el menú
+    document.getElementById("createNewRoutine").addEventListener("click", function() {
+      editingRoutineId = null;
+      document.getElementById("surveyTitle").textContent = "Crear Rutina";
+      document.getElementById("routineName").value = "";
+      document.getElementById("routineDate").value = "";
+      document.getElementById("exercisesContainer").innerHTML = "";
+      document.getElementById("cancelEdit").classList.add("hidden");
+      showView("surveyView");
+    });
+
+    // --- VISTA CALENDARIO ---
+    // Mostrar vista de calendario
+    document.getElementById("viewCalendar").addEventListener("click", function() {
+      showView("calendarView");
+    });
+
+    // Función para renderizar el calendario
+    function renderCalendar() {
+      const calendarBody = document.getElementById("calendarBody");
+      calendarBody.innerHTML = "";
+      const monthYearLabel = document.getElementById("calendarMonthYear");
+      
+      const year = currentCalendarDate.getFullYear();
+      const month = currentCalendarDate.getMonth();
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      monthYearLabel.textContent = currentCalendarDate.toLocaleDateString("es-ES", { month: "long", year: "numeric" });
+      
+      // Determinar el día de la semana en que inicia el mes (0 = domingo)
+      const startDayIndex = firstDay.getDay();
+      const totalDays = lastDay.getDate();
+      
+      let date = 1;
+      // Se crean 6 filas para el calendario
+      for (let i = 0; i < 6; i++) {
+        const row = document.createElement("tr");
+        // 7 columnas para cada día de la semana
+        for (let j = 0; j < 7; j++) {
+          const cell = document.createElement("td");
+          cell.className = "py-2 border border-gray-300 dark:border-gray-700 h-16 relative";
+          if (i === 0 && j < startDayIndex) {
+            cell.innerHTML = "";
+          } else if (date > totalDays) {
+            cell.innerHTML = "";
+          } else {
+            // Construir la fecha actual
+            const cellDate = new Date(year, month, date);
+            const cellDateStr = cellDate.toISOString().split("T")[0];
+            cell.innerHTML = `<span>${date}</span>`;
+            // Verificar si existe actividad en esa fecha
+            const routines = JSON.parse(localStorage.getItem("routines") || "[]");
+            const hasActivity = routines.some(r => {
+              if(r.startTime) {
+                const rDate = new Date(r.startTime).toISOString().split("T")[0];
+                return rDate === cellDateStr;
+              }
+              return false;
+            });
+            if(hasActivity) {
+              // Agregar icono y hacerlo clickeable para ver detalles
+              const icon = document.createElement("span");
+              icon.innerHTML = " ✅";
+              icon.className = "absolute top-0 right-0 cursor-pointer";
+              icon.addEventListener("click", function(e) {
+                e.stopPropagation();
+                showDayDetails(cellDateStr);
+              });
+              cell.appendChild(icon);
+              // También se puede hacer clic en la celda para ver detalles
+              cell.style.cursor = "pointer";
+              cell.addEventListener("click", function() {
+                showDayDetails(cellDateStr);
+              });
+            }
+            date++;
+          }
+          row.appendChild(cell);
+        }
+        calendarBody.appendChild(row);
+      }
+      // Limpiar detalles de día al cambiar de mes
+      document.getElementById("dayDetails").innerHTML = "";
+    }
+
+    // Función para mostrar detalles de rutinas en un día
+    function showDayDetails(dateStr) {
+      const dayDetails = document.getElementById("dayDetails");
+      dayDetails.innerHTML = `<h3 class="text-lg font-semibold mb-2">Rutinas del ${dateStr}</h3>`;
+      const routines = JSON.parse(localStorage.getItem("routines") || "[]");
+      const filtered = routines.filter(r => {
+        if(r.startTime) {
+          const rDate = new Date(r.startTime).toISOString().split("T")[0];
+          return rDate === dateStr;
+        }
+        return false;
+      });
+      if(filtered.length === 0) {
+        dayDetails.innerHTML += "<p>No hay rutinas registradas para este día.</p>";
+      } else {
+        filtered.forEach(routine => {
+          dayDetails.innerHTML += `<div class="border border-gray-300 dark:border-gray-700 p-2 rounded mb-2">
+            <strong>${routine.name}</strong> - ${routine.totalTime ? routine.totalTime : "Sin registrar tiempo"}
+          </div>`;
+        });
+      }
+    }
+
+    // Navegación del calendario
+    document.getElementById("prevMonth").addEventListener("click", function() {
+      currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1);
+      renderCalendar();
+    });
+    document.getElementById("nextMonth").addEventListener("click", function() {
+      currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1);
+      renderCalendar();
+    });
+    document.getElementById("backToMenuFromCalendar").addEventListener("click", function() {
+      showView("menuView");
+    });
+
+    // --- VISTA ANÁLISIS ---
+    document.getElementById("viewAnalysis").addEventListener("click", function() {
+      showView("analysisView");
+    });
+    document.getElementById("backToMenuFromAnalysis").addEventListener("click", function() {
+      showView("menuView");
+    });
+    
+    // Generar gráfica de rutinas realizadas en un periodo
+    document.getElementById("generateChart").addEventListener("click", function() {
+      const startDate = document.getElementById("analysisStartDate").value;
+      const endDate = document.getElementById("analysisEndDate").value;
+      if (!startDate || !endDate) {
+        alert("Seleccione ambas fechas");
+        return;
+      }
+      const routines = JSON.parse(localStorage.getItem("routines") || "[]");
+      // Filtrar rutinas con startTime dentro del rango
+      const filtered = routines.filter(r => {
+        if(r.startTime) {
+          const rTime = new Date(r.startTime);
+          return rTime >= new Date(startDate) && rTime <= new Date(endDate + "T23:59:59");
+        }
+        return false;
+      });
+      // Contar rutinas por día
+      const counts = {};
+      filtered.forEach(r => {
+        const day = new Date(r.startTime).toISOString().split("T")[0];
+        counts[day] = (counts[day] || 0) + 1;
+      });
+      const labels = Object.keys(counts).sort();
+      const data = labels.map(label => counts[label]);
+      
+      // Generar la gráfica
+      const ctx = document.getElementById("analysisChart").getContext("2d");
+      // Si existe una gráfica previa, destruirla
+      if(window.myChart instanceof Chart) {
+        window.myChart.destroy();
+      }
+      window.myChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Rutinas realizadas',
+            data: data,
+            backgroundColor: 'rgba(75, 192, 192, 0.6)'
+          }]
+        },
+        options: {
+          scales: {
+            y: {
+              beginAtZero: true,
+              precision: 0
+            }
+          }
+        }
+      });
+    });
+    
+    // Función para descargar CSV con toda la data de rutinas
+    function downloadCSVFile() {
+      const routines = JSON.parse(localStorage.getItem("routines") || "[]");
+      if(routines.length === 0) {
+        alert("No hay datos para descargar");
+        return;
+      }
+      // Definir encabezados; se incluye ejercicios y estado completado como JSON
+      const headers = ["id", "name", "date", "startTime", "endTime", "totalTime", "exercises", "completed"];
+      const rows = [headers.join(",")];
+      routines.forEach(r => {
+        // Convertir ejercicios y completed a cadenas JSON
+        const exercisesStr = `"${JSON.stringify(r.exercises).replace(/"/g, '""')}"`;
+        const completedStr = r.completed ? `"${JSON.stringify(r.completed).replace(/"/g, '""')}"` : "";
+        const row = [
+          r.id,
+          `"${r.name.replace(/"/g, '""')}"`,
+          r.date || "",
+          r.startTime || "",
+          r.endTime || "",
+          r.totalTime || "",
+          exercisesStr,
+          completedStr
+        ];
+        rows.push(row.join(","));
+      });
+      const csvContent = rows.join("\n");
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", "rutinas.csv");
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+    
+    // Botón para descargar CSV en análisis y desde el menú
+    document.getElementById("downloadCSV").addEventListener("click", downloadCSVFile);
+    document.getElementById("downloadCSVMenu").addEventListener("click", downloadCSVFile);
+    
+    // Al cargar la página, si existe perfil se muestra el menú; de lo contrario, el perfil
+    document.addEventListener("DOMContentLoaded", function() {
+      const userProfile = JSON.parse(localStorage.getItem("userProfile") || "null");
+      if (userProfile && userProfile.name) {
+        document.getElementById("welcomeMessage").textContent = "Bienvenido, " + userProfile.name;
+        loadRoutines();
+        showView("menuView");
+      } else {
+        showView("profileView");
+      }
+    });
+  </script>
+</body>
+</html>
